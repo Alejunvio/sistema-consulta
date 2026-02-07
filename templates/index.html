@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Aduana</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card-result { border-left: 5px solid #0d6efd; }
+        .table-header-custom { background-color: #e9ecef; }
+    </style>
+</head>
+<body>
+
+<!-- Navbar con Botón de Importar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5">
+    <div class="container">
+        <a class="navbar-brand" href="/">Sistema Aduana</a>
+        <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+            📂 Importar Archivo
+        </button>
+    </div>
+</nav>
+
+<!-- Modal de Importación -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Importar Datos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/upload" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar archivo Excel (.xlsx)</label>
+                        <input class="form-control" type="file" name="file" accept=".xlsx, .xls" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Cargar Archivo</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Sección de Mensajes Flash (Errores/Exito) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Buscador Central -->
+    <div class="card shadow-sm mb-5">
+        <div class="card-body p-4">
+            <h3 class="text-center mb-4">Consulta de Importaciones</h3>
+            <form action="/" method="post">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="posicion" id="inputPosicion" list="listaPosiciones" placeholder="Posición Arancelaria" autocomplete="off">
+                        <datalist id="listaPosiciones"></datalist>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="mercaderia" placeholder="Mercadería (ej. Juguete)">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="importador" placeholder="Importador">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="hidden" name="search_action" value="true">
+                        <button class="btn btn-primary w-100" type="submit" {% if not archivo_cargado %}disabled{% endif %}>
+                            🔍 Filtrar y Buscar
+                        </button>
+                    </div>
+                </div>
+                {% if not archivo_cargado %}
+                    <div class="text-center mt-2 text-danger small">⚠️ Debes importar un archivo primero (botón arriba a la derecha).</div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    {% if resultado %}
+        {% if resultado.error %}
+            <div class="alert alert-danger text-center">{{ resultado.error }}</div>
+        {% else %}
+            <h4 class="mb-3 text-muted">Resultados del filtro</h4>
+            
+            <div class="row">
+                <!-- Tabla Valor Máximo -->
+                <div class="col-12 mb-4">
+                    <div class="card border-danger shadow-sm">
+                        <div class="card-header bg-danger text-white fw-bold">
+                            📈 Valor Máximo (FOB)
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped mb-0">
+                                    <thead class="table-header-custom">
+                                        <tr>
+                                            <th style="width: 15%">Posición Arancelaria</th>
+                                            <th style="width: 15%">Despacho</th>
+                                            <th style="width: 5%">Item</th>
+                                            <th style="width: 15%">FOB Dólar</th>
+                                            <th style="width: 25%">Mercadería</th>
+                                            <th style="width: 10%">Cantidad</th>
+                                            <th style="width: 15%">Oficialización</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="align-middle">
+                                            <td>{{ resultado.max_record['POSICION ARANCELARIA'] }}</td>
+                                            <td>{{ resultado.max_record.DESPACHO }}</td>
+                                            <td>{{ resultado.max_record.ITEM }}</td>
+                                            <td class="fw-bold text-danger">{{ resultado.max_record.FOB_FMT }}</td>
+                                            <td>{{ resultado.max_record.MERCADERIA }}</td>
+                                            <td>{{ resultado.max_record.CANTIDAD }}</td>
+                                            <td>{{ resultado.max_record.OFICIALIZACION }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla Valor Mínimo -->
+                <div class="col-12">
+                    <div class="card border-success shadow-sm">
+                        <div class="card-header bg-success text-white fw-bold">
+                            📉 Valor Mínimo (FOB)
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped mb-0">
+                                    <thead class="table-header-custom">
+                                        <tr>
+                                            <th style="width: 15%">Posición Arancelaria</th>
+                                            <th style="width: 15%">Despacho</th>
+                                            <th style="width: 5%">Item</th>
+                                            <th style="width: 15%">FOB Dólar</th>
+                                            <th style="width: 25%">Mercadería</th>
+                                            <th style="width: 10%">Cantidad</th>
+                                            <th style="width: 15%">Oficialización</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="align-middle">
+                                            <td>{{ resultado.min_record['POSICION ARANCELARIA'] }}</td>
+                                            <td>{{ resultado.min_record.DESPACHO }}</td>
+                                            <td>{{ resultado.min_record.ITEM }}</td>
+                                            <td class="fw-bold text-success">{{ resultado.min_record.FOB_FMT }}</td>
+                                            <td>{{ resultado.min_record.MERCADERIA }}</td>
+                                            <td>{{ resultado.min_record.CANTIDAD }}</td>
+                                            <td>{{ resultado.min_record.OFICIALIZACION }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Lógica para autocompletado de Posición Arancelaria
+    const inputPos = document.getElementById('inputPosicion');
+    const dataList = document.getElementById('listaPosiciones');
+
+    function cargarSugerencias() {
+        const texto = inputPos.value;
+        fetch(`/sugerencias?q=${encodeURIComponent(texto)}`)
+            .then(response => response.json())
+            .then(data => {
+                dataList.innerHTML = ''; // Limpiar lista anterior
+                data.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item;
+                    dataList.appendChild(option);
+                });
+            });
+    }
+
+    inputPos.addEventListener('input', cargarSugerencias);
+    inputPos.addEventListener('focus', cargarSugerencias);
+</script>
+</body>
+</html>
