@@ -35,13 +35,17 @@ def index():
 @app.route('/sugerencias')
 def sugerencias():
     query = request.args.get('q', '')
+    campo = request.args.get('campo', 'posicion')
     
     try:
         engine = create_engine(f'sqlite:///{DB_NAME}')
+        
+        columna = 'IMPORTADOR' if campo == 'importador' else 'POSICION ARANCELARIA'
+        
         # Buscamos las primeras 10 coincidencias distintas
-        sql = text('SELECT DISTINCT "POSICION ARANCELARIA" FROM importaciones WHERE "POSICION ARANCELARIA" LIKE :q LIMIT 10')
+        sql = text(f'SELECT DISTINCT "{columna}" FROM importaciones WHERE "{columna}" LIKE :q LIMIT 10')
         df = pd.read_sql(sql, engine, params={'q': f'%{query}%'})
-        return jsonify(df['POSICION ARANCELARIA'].tolist())
+        return jsonify(df[columna].tolist())
     except Exception:
         return jsonify([])
 
@@ -106,40 +110,45 @@ def procesar_datos(posicion, mercaderia, importador):
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         
         # Columnas que queremos mostrar en la tabla
-        cols_select = '"POSICION ARANCELARIA", "DESPACHO", "ITEM", "FOB DOLAR", "MERCADERIA", "CANTIDAD", "OFICIALIZACION"'
+        cols_select = '*'
         
-        # Consulta para el MÁXIMO valor
-        query_max = text(f'SELECT {cols_select} FROM importaciones WHERE {where_clause} ORDER BY "FOB DOLAR" DESC LIMIT 1')
+        # Expresión SQL para calcular el Valor Unitario (FOB / CANTIDAD) manejando ceros
+        sql_unit_val = 'CASE WHEN "CANTIDAD" > 0 THEN "FOB DOLAR" / "CANTIDAD" ELSE 0 END'
+
+        # Consulta para los MÁXIMOS valores (Top 3) - Ordenado por Valor Unitario Descendente
+        query_max = text(f'SELECT {cols_select} FROM importaciones WHERE {where_clause} ORDER BY ({sql_unit_val}) DESC LIMIT 3')
         df_max = pd.read_sql(query_max, engine, params=params)
 
-        # Consulta para el MÍNIMO valor
-        query_min = text(f'SELECT {cols_select} FROM importaciones WHERE {where_clause} ORDER BY "FOB DOLAR" ASC LIMIT 1')
+        # Consulta para los MÍNIMOS valores (Top 3) - Ordenado por Valor Unitario Ascendente
+        query_min = text(f'SELECT {cols_select} FROM importaciones WHERE {where_clause} ORDER BY ({sql_unit_val}) ASC LIMIT 3')
         df_min = pd.read_sql(query_min, engine, params=params)
         
         if df_max.empty or df_min.empty:
             return {'error': 'No se encontraron registros con los filtros proporcionados.'}
 
-        # Convertimos los resultados a diccionarios (records)
-        rec_max = df_max.iloc[0].to_dict()
-        rec_min = df_min.iloc[0].to_dict()
+        # Convertimos los resultados a listas de diccionarios
+        rec_max_list = df_max.to_dict('records')
+        rec_min_list = df_min.to_dict('records')
 
-        # Formateamos el dinero para que se vea bonito
-        rec_max['FOB_FMT'] = f"${rec_max['FOB DOLAR']:,.2f}"
-        rec_min['FOB_FMT'] = f"${rec_min['FOB DOLAR']:,.2f}"
-    
-        # Formateamos Cantidad (sin decimales)
-        rec_max['CANTIDAD'] = f"{rec_max['CANTIDAD']:,.0f}"
-        rec_min['CANTIDAD'] = f"{rec_min['CANTIDAD']:,.0f}"
-
-        # Formateamos Fecha (solo fecha, sin hora)
-        if pd.notna(rec_max['OFICIALIZACION']):
-            rec_max['OFICIALIZACION'] = pd.to_datetime(rec_max['OFICIALIZACION']).strftime('%d/%m/%Y')
-        if pd.notna(rec_min['OFICIALIZACION']):
-            rec_min['OFICIALIZACION'] = pd.to_datetime(rec_min['OFICIALIZACION']).strftime('%d/%m/%Y')
+        # Función auxiliar para procesar cada registro
+        def procesar_registro(row):
+            fob = row.get('FOB DOLAR', 0)
+            cant = row.get('CANTIDAD', 0)
+            if cant and cant > 0:
+                unitario = fob / cant
+            else:
+                unitario = 0
+            row['VALOR_UNITARIO_FMT'] = f"${unitario:,.2f}"
+            row['FOB_FMT'] = f"${fob:,.2f}"
+            row['CANTIDAD_FMT'] = f"{cant:,.0f}"
+            
+            if pd.notna(row['OFICIALIZACION']):
+                row['OFICIALIZACION'] = pd.to_datetime(row['OFICIALIZACION']).strftime('%d/%m/%Y')
+            return row
 
         return {
-            'max_record': rec_max,
-            'min_record': rec_min
+            'max_records': [procesar_registro(r) for r in rec_max_list],
+            'min_records': [procesar_registro(r) for r in rec_min_list]
         }
 
     except Exception as e:

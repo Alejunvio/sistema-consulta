@@ -44,6 +44,23 @@
     </div>
 </div>
 
+<!-- Modal de Detalle Completo -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title">Detalle Completo del Registro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-bordered table-hover" id="detailTable">
+                    <tbody><!-- Se llena con JS --></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container">
     <!-- Sección de Mensajes Flash (Errores/Exito) -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -64,14 +81,29 @@
             <form action="/" method="post">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <input type="text" class="form-control" name="posicion" id="inputPosicion" list="listaPosiciones" placeholder="Posición Arancelaria" autocomplete="off">
-                        <datalist id="listaPosiciones"></datalist>
+                        <div class="position-relative">
+                            <input type="text" class="form-control pe-5" name="posicion" id="inputPosicion" placeholder="Posición Arancelaria" autocomplete="off">
+                            <span id="btnPosicion" class="position-absolute top-50 end-0 translate-middle-y me-3 text-muted" style="cursor: pointer;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </span>
+                            <div id="listaPosiciones" class="list-group position-absolute w-100 shadow" style="z-index: 1050; max-height: 300px; overflow-y: auto; display: none;"></div>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <input type="text" class="form-control" name="mercaderia" placeholder="Mercadería (ej. Juguete)">
                     </div>
                     <div class="col-md-3">
-                        <input type="text" class="form-control" name="importador" placeholder="Importador">
+                        <div class="position-relative">
+                            <input type="text" class="form-control pe-5" name="importador" id="inputImportador" placeholder="Importador" autocomplete="off">
+                            <span id="btnImportador" class="position-absolute top-50 end-0 translate-middle-y me-3 text-muted" style="cursor: pointer;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </span>
+                            <div id="listaImportadores" class="list-group position-absolute w-100 shadow" style="z-index: 1050; max-height: 300px; overflow-y: auto; display: none;"></div>
+                        </div>
                     </div>
                     <div class="col-md-3">
                         <input type="hidden" name="search_action" value="true">
@@ -99,32 +131,46 @@
                 <div class="col-12 mb-4">
                     <div class="card border-danger shadow-sm">
                         <div class="card-header bg-danger text-white fw-bold">
-                            📈 Valor Máximo (FOB)
+                            📈 Top 3 Valores Máximos (Val. Unitario)
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-striped mb-0">
                                     <thead class="table-header-custom">
                                         <tr>
-                                            <th style="width: 15%">Posición Arancelaria</th>
-                                            <th style="width: 15%">Despacho</th>
-                                            <th style="width: 5%">Item</th>
-                                            <th style="width: 15%">FOB Dólar</th>
-                                            <th style="width: 25%">Mercadería</th>
-                                            <th style="width: 10%">Cantidad</th>
-                                            <th style="width: 15%">Oficialización</th>
+                                            <th style="width: 10%">Pos. Arancelaria</th>
+                                            <th style="width: 9%">Despacho</th>
+                                            <th style="width: 4%">Item</th>
+                                            <th style="width: 14%">Importador</th>
+                                            <th style="width: 18%">Mercadería</th>
+                                            <th style="width: 5%">Unidad</th>
+                                            <th style="width: 9%">FOB Dolar</th>
+                                            <th style="width: 5%">Cant.</th>
+                                            <th style="width: 9%">Val. Unitario</th>
+                                            <th style="width: 9%">Oficialización</th>
+                                            <th style="width: 8%">Detalle</th>
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        {% for record in resultado.max_records %}
                                         <tr class="align-middle">
-                                            <td>{{ resultado.max_record['POSICION ARANCELARIA'] }}</td>
-                                            <td>{{ resultado.max_record.DESPACHO }}</td>
-                                            <td>{{ resultado.max_record.ITEM }}</td>
-                                            <td class="fw-bold text-danger">{{ resultado.max_record.FOB_FMT }}</td>
-                                            <td>{{ resultado.max_record.MERCADERIA }}</td>
-                                            <td>{{ resultado.max_record.CANTIDAD }}</td>
-                                            <td>{{ resultado.max_record.OFICIALIZACION }}</td>
+                                            <td>{{ record['POSICION ARANCELARIA'] }}</td>
+                                            <td>{{ record.DESPACHO }}</td>
+                                            <td>{{ record.ITEM }}</td>
+                                            <td>{{ record.IMPORTADOR }}</td>
+                                            <td>{{ record.MERCADERIA }}</td>
+                                            <td>{{ record['UNIDAD DE MEDIDA'] }}</td>
+                                            <td>{{ record.FOB_FMT }}</td>
+                                            <td>{{ record.CANTIDAD_FMT }}</td>
+                                            <td class="fw-bold text-danger">{{ record.VALOR_UNITARIO_FMT }}</td>
+                                            <td>{{ record.OFICIALIZACION }}</td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#detailModal" data-record='{{ record | tojson | forceescape }}'>
+                                                    👁️ Ver
+                                                </button>
+                                            </td>
                                         </tr>
+                                        {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
@@ -136,32 +182,46 @@
                 <div class="col-12">
                     <div class="card border-success shadow-sm">
                         <div class="card-header bg-success text-white fw-bold">
-                            📉 Valor Mínimo (FOB)
+                            📉 Top 3 Valores Mínimos (Val. Unitario)
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-striped mb-0">
                                     <thead class="table-header-custom">
                                         <tr>
-                                            <th style="width: 15%">Posición Arancelaria</th>
-                                            <th style="width: 15%">Despacho</th>
-                                            <th style="width: 5%">Item</th>
-                                            <th style="width: 15%">FOB Dólar</th>
-                                            <th style="width: 25%">Mercadería</th>
-                                            <th style="width: 10%">Cantidad</th>
-                                            <th style="width: 15%">Oficialización</th>
+                                            <th style="width: 10%">Pos. Arancelaria</th>
+                                            <th style="width: 9%">Despacho</th>
+                                            <th style="width: 4%">Item</th>
+                                            <th style="width: 14%">Importador</th>
+                                            <th style="width: 18%">Mercadería</th>
+                                            <th style="width: 5%">Unidad</th>
+                                            <th style="width: 9%">FOB Dolar</th>
+                                            <th style="width: 5%">Cant.</th>
+                                            <th style="width: 9%">Val. Unitario</th>
+                                            <th style="width: 9%">Oficialización</th>
+                                            <th style="width: 8%">Detalle</th>
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        {% for record in resultado.min_records %}
                                         <tr class="align-middle">
-                                            <td>{{ resultado.min_record['POSICION ARANCELARIA'] }}</td>
-                                            <td>{{ resultado.min_record.DESPACHO }}</td>
-                                            <td>{{ resultado.min_record.ITEM }}</td>
-                                            <td class="fw-bold text-success">{{ resultado.min_record.FOB_FMT }}</td>
-                                            <td>{{ resultado.min_record.MERCADERIA }}</td>
-                                            <td>{{ resultado.min_record.CANTIDAD }}</td>
-                                            <td>{{ resultado.min_record.OFICIALIZACION }}</td>
+                                            <td>{{ record['POSICION ARANCELARIA'] }}</td>
+                                            <td>{{ record.DESPACHO }}</td>
+                                            <td>{{ record.ITEM }}</td>
+                                            <td>{{ record.IMPORTADOR }}</td>
+                                            <td>{{ record.MERCADERIA }}</td>
+                                            <td>{{ record['UNIDAD DE MEDIDA'] }}</td>
+                                            <td>{{ record.FOB_FMT }}</td>
+                                            <td>{{ record.CANTIDAD_FMT }}</td>
+                                            <td class="fw-bold text-success">{{ record.VALOR_UNITARIO_FMT }}</td>
+                                            <td>{{ record.OFICIALIZACION }}</td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#detailModal" data-record='{{ record | tojson | forceescape }}'>
+                                                    👁️ Ver
+                                                </button>
+                                            </td>
                                         </tr>
+                                        {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
@@ -175,26 +235,81 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Lógica para autocompletado de Posición Arancelaria
-    const inputPos = document.getElementById('inputPosicion');
-    const dataList = document.getElementById('listaPosiciones');
+    // Lógica genérica para autocompletado
+    function configurarAutocompletado(inputId, listId, campo, btnId) {
+        const input = document.getElementById(inputId);
+        const list = document.getElementById(listId);
+        const btn = document.getElementById(btnId);
 
-    function cargarSugerencias() {
-        const texto = inputPos.value;
-        fetch(`/sugerencias?q=${encodeURIComponent(texto)}`)
+        function cargar() {
+            const texto = input.value;
+
+            fetch(`/sugerencias?q=${encodeURIComponent(texto)}&campo=${campo}`)
             .then(response => response.json())
             .then(data => {
-                dataList.innerHTML = ''; // Limpiar lista anterior
+                list.innerHTML = ''; // Limpiar lista anterior
+                
+                if (data.length === 0) {
+                    list.style.display = 'none';
+                    return;
+                }
+
                 data.forEach(item => {
-                    const option = document.createElement('option');
-                    option.value = item;
-                    dataList.appendChild(option);
+                    // Crear elemento de lista estilo Bootstrap
+                    const itemLink = document.createElement('a');
+                    itemLink.href = "#";
+                    itemLink.className = "list-group-item list-group-item-action";
+                    itemLink.textContent = item;
+                    itemLink.onclick = function(e) {
+                        e.preventDefault();
+                        input.value = item; // Al hacer clic, rellenar input
+                        list.style.display = 'none'; // Ocultar lista
+                    };
+                    list.appendChild(itemLink);
                 });
+                list.style.display = 'block'; // Mostrar lista
             });
+        }
+
+        input.addEventListener('input', cargar);
+        input.addEventListener('focus', cargar);
+
+        if (btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation(); // Evitar que el click cierre la lista inmediatamente
+                input.focus();
+                cargar();
+            });
+        }
+
+        // Cerrar lista al hacer clic fuera del input o de la lista
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !list.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                list.style.display = 'none';
+            }
+        });
     }
 
-    inputPos.addEventListener('input', cargarSugerencias);
-    inputPos.addEventListener('focus', cargarSugerencias);
+    configurarAutocompletado('inputPosicion', 'listaPosiciones', 'posicion', 'btnPosicion');
+    configurarAutocompletado('inputImportador', 'listaImportadores', 'importador', 'btnImportador');
+
+    // Lógica para el Modal de Detalle
+    const detailModal = document.getElementById('detailModal');
+    detailModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget; // Botón que activó el modal
+        const record = JSON.parse(button.getAttribute('data-record')); // Extraer datos
+        
+        const tbody = document.getElementById('detailTable').querySelector('tbody');
+        tbody.innerHTML = ''; // Limpiar tabla anterior
+
+        // Recorrer todas las propiedades del registro y agregarlas a la tabla
+        for (const [key, value] of Object.entries(record)) {
+            const row = document.createElement('tr');
+            // Ocultar columnas internas de formato si se desea, o mostrar todo
+            row.innerHTML = `<th class="bg-light" style="width: 30%">${key}</th><td>${value !== null ? value : ''}</td>`;
+            tbody.appendChild(row);
+        }
+    });
 </script>
 </body>
 </html>
