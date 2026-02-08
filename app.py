@@ -13,7 +13,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 FILE_PATH = os.path.join(app.config['UPLOAD_FOLDER'], 'data_source.xlsx')
-DB_NAME = 'aduana.db'
+DB_NAME = 'datos.db'
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
