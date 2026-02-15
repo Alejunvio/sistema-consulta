@@ -1,6 +1,7 @@
 import os
+import io
 import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from sqlalchemy import create_engine, text
 
 app = Flask(__name__)
@@ -78,6 +79,15 @@ def upload_file():
             df['POSICION ARANCELARIA'] = df['POSICION ARANCELARIA'].astype(str).str.strip()
             df['FOB DOLAR'] = pd.to_numeric(df['FOB DOLAR'], errors='coerce')
             
+            # Convertir nuevas columnas numéricas si existen
+            for col in ['VALOR LISTA', 'VALOR PLANILLA', 'VALOR RES']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # Inicializar columna OBSERVACION si no existe
+            if 'OBSERVACION' not in df.columns:
+                df['OBSERVACION'] = ''
+
             engine = create_engine(f'sqlite:///{DB_NAME}')
             df.to_sql('importaciones', con=engine, if_exists='replace', index=False)
             
@@ -85,6 +95,41 @@ def upload_file():
         except Exception as e:
             flash(f'Error procesando el archivo: {str(e)}', 'danger')
             
+        return redirect(url_for('index'))
+
+@app.route('/update_observation', methods=['POST'])
+def update_observation():
+    try:
+        data = request.get_json()
+        despacho = data.get('despacho')
+        item = data.get('item')
+        observacion = data.get('observacion')
+
+        engine = create_engine(f'sqlite:///{DB_NAME}')
+        with engine.connect() as conn:
+            # Usamos DESPACHO e ITEM como identificadores únicos del registro
+            sql = text('UPDATE importaciones SET OBSERVACION = :obs WHERE DESPACHO = :desp AND ITEM = :item')
+            conn.execute(sql, {'obs': observacion, 'desp': despacho, 'item': item})
+            conn.commit()
+            
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/export')
+def export_file():
+    try:
+        engine = create_engine(f'sqlite:///{DB_NAME}')
+        df = pd.read_sql('SELECT * FROM importaciones', engine)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Datos')
+        output.seek(0)
+        
+        return send_file(output, download_name='datos_exportados.xlsx', as_attachment=True)
+    except Exception as e:
+        flash(f'Error al exportar: {str(e)}', 'danger')
         return redirect(url_for('index'))
 
 def procesar_datos(posicion, mercaderia, importador):
@@ -141,6 +186,15 @@ def procesar_datos(posicion, mercaderia, importador):
             row['VALOR_UNITARIO_FMT'] = f"${unitario:,.2f}"
             row['FOB_FMT'] = f"${fob:,.2f}"
             row['CANTIDAD_FMT'] = f"{cant:,.0f}"
+            
+            # Formatear nuevas columnas
+            for col in ['VALOR LISTA', 'VALOR PLANILLA', 'VALOR RES']:
+                val = row.get(col)
+                val = val if pd.notna(val) else 0
+                row[f"{col.replace(' ', '_')}_FMT"] = f"${val:,.2f}"
+            
+            # Asegurar que observación no sea NaN
+            row['OBSERVACION'] = row.get('OBSERVACION') if pd.notna(row.get('OBSERVACION')) else ''
             
             if pd.notna(row['OFICIALIZACION']):
                 row['OFICIALIZACION'] = pd.to_datetime(row['OFICIALIZACION']).strftime('%d/%m/%Y')
